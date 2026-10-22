@@ -9,6 +9,8 @@ const EXCLUDED_TAGS = new Set([
   'EMBED'
 ]);
 
+const signatureCache = new WeakMap<Element, string>();
+
 function getSubtreeSkeleton(element: Element, depth = 0, maxDepth = 3): string {
   if (depth > maxDepth) return '';
 
@@ -29,23 +31,33 @@ function getSubtreeSkeleton(element: Element, depth = 0, maxDepth = 3): string {
 }
 
 export function computeStructuralSignature(element: Element): string {
+  const cached = signatureCache.get(element);
+  if (cached) return cached;
+
   const rootTag = element.tagName.toUpperCase();
   const skeleton = getSubtreeSkeleton(element, 0, 2);
+
   const hasLinks = element.querySelector('a[href]') ? 'L' : '';
   const hasImages = element.querySelector('img, picture') ? 'I' : '';
-  const hasHeadings = element.querySelector('h1, h2, h3, h4, h5, h6') ? 'H' : '';
+  const hasHeadings = element.querySelector('h1, h2, h3, h4, h5, h6, [role="heading"]') ? 'H' : '';
+  const hasTime = element.querySelector('time, [datetime]') ? 'T' : '';
 
-  const flags = [hasLinks, hasImages, hasHeadings].filter(Boolean).join('');
+  const text = (element.textContent || '');
+  const hasPrice = /[$€£₹¥]|USD|EUR|INR|price/i.test(text) ? '$' : '';
+
+  const flags = [hasLinks, hasImages, hasHeadings, hasTime, hasPrice].filter(Boolean).join('');
   const suffix = flags ? `:${flags}` : '';
 
-  return `${rootTag}[${skeleton}]${suffix}`;
+  const signature = `${rootTag}[${skeleton}]${suffix}`;
+  signatureCache.set(element, signature);
+  return signature;
 }
 
 export function computeStructuralSimilarity(sigA: string, sigB: string): number {
   if (sigA === sigB) return 1.0;
 
   const getTokens = (sig: string) => {
-    return new Set(sig.split(/[^A-Za-z0-9]+/).filter(Boolean));
+    return new Set(sig.split(/[^A-Za-z0-9$]+/).filter(Boolean));
   };
 
   const setA = getTokens(sigA);

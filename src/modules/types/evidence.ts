@@ -1,3 +1,17 @@
+export interface EvidenceLimits {
+  maxSamples: number;
+  maxBytes: number;
+  maxTextLength: number;
+  maxAttrLength: number;
+}
+
+export const DEFAULT_EVIDENCE_LIMITS: EvidenceLimits = {
+  maxSamples: 3,
+  maxBytes: 8192,
+  maxTextLength: 150,
+  maxAttrLength: 100
+};
+
 export interface EvidenceElement {
   tag: string;
   id?: string;
@@ -35,5 +49,8 @@ export interface CandidateGroupEvidence {
   structuralSignature: string;
   sampleCount: number;
   totalEvidenceBytes: number;
+  isTruncated: boolean;
+  deduplicatedCount: number;
+  configuredLimits: EvidenceLimits;
   samples: CandidateSampleEvidence[];
 }

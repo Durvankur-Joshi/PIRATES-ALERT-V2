@@ -1,7 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { PRESET_SCHEMAS, RecordPresetType } from '../modules/types/schema';
-import { PageDiagnostics, CandidateGroup } from '../modules/types/diagnostics';
+import { PageDiagnostics, CandidateGroup, CandidateTypeGuess } from '../modules/types/diagnostics';
 import { ExtensionMessage } from '../modules/types/messaging';
+
+function formatCandidateType(type: CandidateTypeGuess): string {
+  switch (type) {
+    case 'product_card':
+      return 'Likely E-Commerce Product';
+    case 'b2b_listing':
+      return 'Likely B2B Marketplace Listing';
+    case 'social_post':
+      return 'Likely Social Media Post';
+    case 'profile_card':
+      return 'Likely Member / Profile Card';
+    case 'article_entry':
+      return 'Likely Article Entry';
+    case 'site_navigation':
+      return 'Site Navigation (Downranked)';
+    case 'generic_repeating':
+    default:
+      return 'Generic Repeating Section';
+  }
+}
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'diagnostics' | 'rules' | 'settings'>('diagnostics');
@@ -11,6 +31,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [connected, setConnected] = useState<boolean>(false);
   const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
+  const [showReasonsGroupId, setShowReasonsGroupId] = useState<string | null>(null);
   const [highlightedSelector, setHighlightedSelector] = useState<string | null>(null);
 
   const activePresetConfig = PRESET_SCHEMAS[selectedPreset];
@@ -159,6 +180,11 @@ export default function App() {
         </div>
       </header>
 
+      <div className="privacy-banner">
+        <span>✓</span>
+        <span>Phase 2 Local Mode — Zero External AI Calls / No Page Data Transmitted Externally</span>
+      </div>
+
       <section className="preset-card">
         <div className="preset-row">
           <span className="label-title">Target Schema Preset</span>
@@ -188,16 +214,12 @@ export default function App() {
         </div>
       </section>
 
-      <div className="disclaimer-box">
-        Heuristic discovery identifies candidate clusters from DOM repetition patterns. Selecting a schema configures targets; extraction will run in Phase 4.
-      </div>
-
       <nav className="tabs-nav">
         <button
           className={`tab-btn ${activeTab === 'diagnostics' ? 'active' : ''}`}
           onClick={() => setActiveTab('diagnostics')}
         >
-          DOM Diagnostics
+          Candidate Discovery
         </button>
         <button
           className={`tab-btn ${activeTab === 'rules' ? 'active' : ''}`}
@@ -229,7 +251,7 @@ export default function App() {
               onClick={handleInspectPage}
               disabled={loading}
             >
-              {loading ? 'Inspecting DOM...' : 'Inspect Page DOM Candidates'}
+              {loading ? 'Inspecting DOM...' : 'Inspect & Rank Candidate Groups'}
             </button>
             {highlightedSelector && (
               <button className="btn-secondary" onClick={handleClearHighlight}>
@@ -264,7 +286,7 @@ export default function App() {
 
                   <div className="candidate-list">
                     <div className="label-title">
-                      Candidate Groups ({diagnostics.candidateGroups.length})
+                      Ranked Candidates ({diagnostics.candidateGroups.length})
                     </div>
 
                     {diagnostics.candidateGroups.length === 0 ? (
@@ -272,15 +294,19 @@ export default function App() {
                         <span>No repeating candidate sections detected on this page.</span>
                       </div>
                     ) : (
-                      diagnostics.candidateGroups.map((group) => {
+                      diagnostics.candidateGroups.map((group, rankIdx) => {
                         const isExpanded = expandedGroupId === group.groupId;
+                        const isShowingReasons = showReasonsGroupId === group.groupId;
                         const isHighlighted = highlightedSelector === group.cardSelector;
 
                         return (
-                          <div key={group.groupId} className="candidate-card">
+                          <div
+                            key={group.groupId}
+                            className={`candidate-card ${group.isChrome ? 'chrome-item' : ''}`}
+                          >
                             <div className="candidate-header">
                               <span className="candidate-selector" title={group.cardSelector}>
-                                {group.cardSelector}
+                                #{rankIdx + 1} {group.cardSelector}
                               </span>
                               <span
                                 className={`score-badge ${
@@ -291,17 +317,22 @@ export default function App() {
                                     : 'score-low'
                                 }`}
                               >
-                                Heuristic Score: {group.heuristicScore}/100
+                                Score: {group.heuristicScore}/100
                               </span>
                             </div>
 
-                            <div className="structural-chip" title={group.structuralSignature}>
-                              Sig: {group.structuralSignature}
+                            <div className="candidate-subrow">
+                              <span className="type-guess-badge">
+                                {formatCandidateType(group.candidateTypeGuess)}
+                              </span>
+                              <span className="structural-chip" title={group.structuralSignature}>
+                                Sig: {group.structuralSignature}
+                              </span>
                             </div>
 
                             <div className="candidate-metrics">
                               <span className="metric-item">
-                                <strong>{group.count}</strong> items in container
+                                <strong>{group.count}</strong> items
                               </span>
                               <span className="metric-item">
                                 <strong>{group.liveMatchCount}</strong> live matches
@@ -312,23 +343,33 @@ export default function App() {
                                 </span>
                               )}
                               <span className="metric-item">
-                                Depth: {group.depth}
+                                Similarity: {Math.round(group.structuralSimilarity * 100)}%
                               </span>
                               <span className="metric-item">
-                                {group.hasLinks && 'Links ✓ '}
-                                {group.hasImages && 'Images ✓ '}
+                                Depth: {group.depth}
                               </span>
                             </div>
 
                             <div className="candidate-actions">
-                              <button
-                                className="btn-secondary"
-                                onClick={() =>
-                                  setExpandedGroupId(isExpanded ? null : group.groupId)
-                                }
-                              >
-                                {isExpanded ? 'Hide Evidence' : 'Structured Evidence'}
-                              </button>
+                              <div style={{ display: 'flex', gap: '6px' }}>
+                                <button
+                                  className="btn-secondary"
+                                  onClick={() =>
+                                    setExpandedGroupId(isExpanded ? null : group.groupId)
+                                  }
+                                >
+                                  {isExpanded ? 'Hide Evidence' : 'View Evidence'}
+                                </button>
+                                <button
+                                  className="btn-secondary"
+                                  onClick={() =>
+                                    setShowReasonsGroupId(isShowingReasons ? null : group.groupId)
+                                  }
+                                >
+                                  {isShowingReasons ? 'Hide Signals' : `Signals (${group.rankingReasons.length})`}
+                                </button>
+                              </div>
+
                               <button
                                 className="btn-secondary"
                                 onClick={() => handleHighlight(group)}
@@ -337,19 +378,37 @@ export default function App() {
                                   color: isHighlighted ? 'var(--accent-cyan)' : undefined
                                 }}
                               >
-                                {isHighlighted ? 'Highlighted' : 'Highlight on Page'}
+                                {isHighlighted ? 'Highlighted' : 'Highlight'}
                               </button>
                             </div>
 
-                            {isExpanded && group.evidence && group.evidence.samples.length > 0 && (
-                              <div className="preview-structured">
-                                <span className="preview-section-title">
-                                  Sample Evidence (Total Size: {group.evidence.totalEvidenceBytes} bytes)
-                                </span>
+                            {isShowingReasons && (
+                              <div className="reasons-box">
+                                {group.rankingReasons.map((r, i) => (
+                                  <div key={i} className="reason-item">
+                                    <strong className={r.type === 'boost' ? 'reason-boost' : 'reason-penalty'}>
+                                      {r.scoreDelta > 0 ? `+${r.scoreDelta}` : r.scoreDelta}
+                                    </strong>
+                                    <span>{r.label}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
 
-                                {group.evidence.samples.slice(0, 2).map((s, idx) => (
+                            {isExpanded && group.evidence && (
+                              <div className="preview-structured">
+                                <div className="preview-meta-row">
+                                  <span>
+                                    Evidence Size: {group.evidence.totalEvidenceBytes} / {group.evidence.configuredLimits.maxBytes} bytes
+                                  </span>
+                                  <span>
+                                    Samples: {group.evidence.sampleCount} | Truncated: {group.evidence.isTruncated ? 'Yes' : 'No'}
+                                  </span>
+                                </div>
+
+                                {group.evidence.samples.map((s, idx) => (
                                   <div key={idx} className="preview-item-row">
-                                    <strong>Item #{idx + 1}</strong>
+                                    <strong>Sample Item #{idx + 1}</strong>
 
                                     {s.conciseSummary.headings.length > 0 && (
                                       <div>
@@ -410,7 +469,7 @@ export default function App() {
 
           {!diagnostics && !loading && (
             <div className="empty-state">
-              <span>Click "Inspect Page DOM Candidates" to scan the active page for repeating cards, feeds, or listings.</span>
+              <span>Click "Inspect & Rank Candidate Groups" to scan the active page for candidate listing cards, feeds, or directories.</span>
             </div>
           )}
         </main>
