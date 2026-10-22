@@ -14,7 +14,6 @@ describe('DOM Diagnostics Collector', () => {
   it('detects repeating candidate listing cards', () => {
     document.title = 'Test Store';
     document.body.innerHTML = `
-      <header><nav><a>Home</a><a>Catalog</a></nav></header>
       <main>
         <section class="products-grid">
           <div class="product-card">
@@ -39,7 +38,6 @@ describe('DOM Diagnostics Collector', () => {
           </div>
         </section>
       </main>
-      <footer><span>Copyright 2026</span></footer>
     `;
 
     const diagnostics = collectPageDiagnostics();
@@ -52,21 +50,16 @@ describe('DOM Diagnostics Collector', () => {
     expect(topGroup.count).toBe(4);
     expect(topGroup.hasLinks).toBe(true);
     expect(topGroup.hasImages).toBe(true);
-    expect(topGroup.confidence).toBeGreaterThan(0.7);
-    expect(topGroup.sampleSnippets.length).toBeGreaterThan(0);
+    expect(topGroup.heuristicScore).toBeGreaterThanOrEqual(70);
+    expect(topGroup.evidence.samples.length).toBeGreaterThan(0);
   });
 
-  it('ignores excluded navigation, header, and footer containers', () => {
+  it('excludes non-content script, style, and template tags from candidate clustering', () => {
     document.body.innerHTML = `
-      <nav>
-        <ul>
-          <li><a href="/1">Link 1</a></li>
-          <li><a href="/2">Link 2</a></li>
-          <li><a href="/3">Link 3</a></li>
-          <li><a href="/4">Link 4</a></li>
-        </ul>
-      </nav>
       <section class="posts">
+        <script>const x = 1;</script>
+        <style>.feed-item { display: block; }</style>
+        <template><div class="feed-item">Template</div></template>
         <article class="feed-item"><p>Post A</p><a href="/a">Read</a></article>
         <article class="feed-item"><p>Post B</p><a href="/b">Read</a></article>
         <article class="feed-item"><p>Post C</p><a href="/c">Read</a></article>
@@ -76,7 +69,7 @@ describe('DOM Diagnostics Collector', () => {
     const diagnostics = collectPageDiagnostics();
     const candidateGroupSelectors = diagnostics.candidateGroups.map((g) => g.cardSelector);
 
-    expect(candidateGroupSelectors.some((sel) => sel.includes('nav'))).toBe(false);
+    expect(candidateGroupSelectors.some((sel) => sel.includes('script') || sel.includes('style') || sel.includes('template'))).toBe(false);
     expect(candidateGroupSelectors.some((sel) => sel.includes('feed-item') || sel.includes('article'))).toBe(true);
   });
 

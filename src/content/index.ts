@@ -41,6 +41,11 @@ function handleMessage(
   return false;
 }
 
+const globalScope = window as unknown as { __pirates_v2_initialized?: boolean };
+
 if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
-  chrome.runtime.onMessage.addListener(handleMessage);
+  if (!globalScope.__pirates_v2_initialized) {
+    globalScope.__pirates_v2_initialized = true;
+    chrome.runtime.onMessage.addListener(handleMessage);
+  }
 }

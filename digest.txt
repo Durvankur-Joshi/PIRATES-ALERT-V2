@@ -1,0 +1,1698 @@
+Directory structure:
+└── PIRATES ALERT V2/
+    ├── package.json
+    ├── popup.html
+    ├── tsconfig.json
+    ├── vite.config.ts
+    ├── vite.content.config.ts
+    ├── vitest.config.ts
+    ├── public/
+    │   └── manifest.json
+    ├── src/
+    │   ├── background/
+    │   │   └── index.ts
+    │   ├── content/
+    │   │   ├── domCollector.ts
+    │   │   └── index.ts
+    │   ├── modules/
+    │   │   └── types/
+    │   │       ├── diagnostics.ts
+    │   │       ├── messaging.ts
+    │   │       └── schema.ts
+    │   └── popup/
+    │       ├── App.tsx
+    │       ├── main.tsx
+    │       └── styles/
+    │           ├── popup.css
+    │           └── theme.css
+    └── tests/
+        └── unit/
+            ├── domCollector.test.ts
+            └── schema.test.ts
+
+================================================
+FILE: package.json
+================================================
+{
+  "name": "pirates-alert-v2",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build:popup": "vite build",
+    "build:scripts": "vite build --config vite.content.config.ts",
+    "build": "vite build && vite build --config vite.content.config.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.308",
+    "@types/node": "^22.13.9",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^26.0.0",
+    "typescript": "^5.7.3",
+    "vite": "^6.2.0",
+    "vitest": "^3.0.7"
+  }
+}
+
+
+
+================================================
+FILE: popup.html
+================================================
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PIRATES ALERT V2</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/popup/main.tsx"></script>
+  </body>
+</html>
+
+
+
+================================================
+FILE: tsconfig.json
+================================================
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "useDefineForClassFields": true,
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx"
+  },
+  "include": ["src", "tests", "vite.config.ts", "vite.content.config.ts", "vitest.config.ts"]
+}
+
+
+
+================================================
+FILE: vite.config.ts
+================================================
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { resolve } from 'path';
+
+export default defineConfig({
+  plugins: [react()],
+  base: './',
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        popup: resolve(__dirname, 'popup.html'),
+        background: resolve(__dirname, 'src/background/index.ts')
+      },
+      output: {
+        entryFileNames: (chunkInfo) => {
+          if (chunkInfo.name === 'background') {
+            return 'background.js';
+          }
+          return 'assets/[name].js';
+        },
+        chunkFileNames: 'assets/[name].js',
+        assetFileNames: 'assets/[name].[ext]'
+      }
+    }
+  }
+});
+
+
+
+================================================
+FILE: vite.content.config.ts
+================================================
+import { defineConfig } from 'vite';
+import { resolve } from 'path';
+
+export default defineConfig({
+  build: {
+    outDir: 'dist',
+    emptyOutDir: false,
+    lib: {
+      entry: resolve(__dirname, 'src/content/index.ts'),
+      name: 'PiratesAlertV2Content',
+      formats: ['iife'],
+      fileName: () => 'content.js'
+    }
+  }
+});
+
+
+
+================================================
+FILE: vitest.config.ts
+================================================
+import { defineConfig } from 'vitest/config';
+
+export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    include: ['tests/**/*.{test,spec}.ts']
+  }
+});
+
+
+
+================================================
+FILE: public/manifest.json
+================================================
+{
+  "manifest_version": 3,
+  "name": "PIRATES ALERT V2",
+  "version": "2.0.0",
+  "description": "General-purpose AI-assisted browser extraction extension",
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://localhost:3001/*",
+    "http://127.0.0.1:3001/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "PIRATES ALERT V2",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
+
+
+
+================================================
+FILE: src/background/index.ts
+================================================
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.storage.local.set({
+    pirates_v2_initialized: true,
+    pirates_v2_installed_at: new Date().toISOString()
+  });
+});
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.type === 'PING_BACKGROUND') {
+    sendResponse({ status: 'OK', workerTime: new Date().toISOString() });
+    return false;
+  }
+  return false;
+});
+
+
+
+================================================
+FILE: src/content/domCollector.ts
+================================================
+import { CandidateGroup, PageDiagnostics } from '../modules/types/diagnostics';
+
+const EXCLUDED_TAGS = new Set([
+  'SCRIPT',
+  'STYLE',
+  'NOSCRIPT',
+  'SVG',
+  'IFRAME',
+  'OBJECT',
+  'EMBED',
+  'HEADER',
+  'FOOTER',
+  'NAV',
+  'ASIDE'
+]);
+
+function isExcluded(element: Element): boolean {
+  if (EXCLUDED_TAGS.has(element.tagName.toUpperCase())) {
+    return true;
+  }
+  const role = element.getAttribute('role')?.toLowerCase();
+  if (role === 'navigation' || role === 'banner' || role === 'contentinfo') {
+    return true;
+  }
+  return false;
+}
+
+function getElementDepth(element: Element): number {
+  let depth = 0;
+  let curr: Element | null = element;
+  while (curr && curr !== document.body && curr !== document.documentElement) {
+    depth++;
+    curr = curr.parentElement;
+  }
+  return depth;
+}
+
+function computeTextDensity(element: Element): number {
+  const text = (element.textContent || '').trim();
+  const html = element.innerHTML || '';
+  if (!html.length) return 0;
+  return Math.min(1, text.length / html.length);
+}
+
+function escapeCss(str: string): string {
+  if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
+    return CSS.escape(str);
+  }
+  return str.replace(/([!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~])/g, '\\$1');
+}
+
+function buildElementSelector(element: Element): string {
+  if (element.id && !element.id.match(/^[0-9]/) && !element.id.includes(':')) {
+    return `#${escapeCss(element.id)}`;
+  }
+
+  const tagName = element.tagName.toLowerCase();
+  const classList = Array.from(element.classList).filter(
+    (c) => !c.startsWith('pirates-v2-') && !c.includes(':') && c.length < 50
+  );
+
+  if (classList.length > 0) {
+    return `${tagName}.${escapeCss(classList[0])}`;
+  }
+
+  return tagName;
+}
+
+function buildUniqueCardSelector(container: Element, sampleChild: Element): string {
+  const containerSel = buildElementSelector(container);
+  const childTag = sampleChild.tagName.toLowerCase();
+  const childClasses = Array.from(sampleChild.classList).filter(
+    (c) => !c.startsWith('pirates-v2-') && !c.includes(':') && c.length < 50
+  );
+
+  if (childClasses.length > 0) {
+    return `${containerSel} > ${childTag}.${escapeCss(childClasses[0])}`;
+  }
+
+  return `${containerSel} > ${childTag}`;
+}
+
+function sanitizeSampleSnippet(element: Element): string {
+  const clone = element.cloneNode(true) as HTMLElement;
+  const unwanted = clone.querySelectorAll(
+    'script, style, noscript, svg, nav, header, footer, [style*="display: none"]'
+  );
+  unwanted.forEach((el) => el.remove());
+
+  clone.querySelectorAll('*').forEach((el) => {
+    Array.from(el.attributes).forEach((attr) => {
+      if (attr.name.startsWith('on') || attr.name.startsWith('data-reactroot')) {
+        el.removeAttribute(attr.name);
+      }
+    });
+  });
+
+  const rawHtml = clone.outerHTML;
+  return rawHtml.length > 800 ? rawHtml.slice(0, 800) + '...' : rawHtml;
+}
+
+export function collectPageDiagnostics(): PageDiagnostics {
+  const url = window.location.href;
+  const hostname = window.location.hostname;
+  const title = document.title;
+  const timestamp = new Date().toISOString();
+
+  const isRestricted =
+    url.startsWith('chrome://') ||
+    url.startsWith('chrome-extension://') ||
+    url.startsWith('edge://') ||
+    url.startsWith('about:') ||
+    url.startsWith('view-source:');
+
+  if (isRestricted) {
+    return {
+      url,
+      hostname,
+      title,
+      timestamp,
+      totalElements: 0,
+      candidateGroups: [],
+      hasRestrictedAccess: true,
+      restrictionReason: 'Browser-internal system pages cannot be extracted.'
+    };
+  }
+
+  const allElements = document.querySelectorAll('body *');
+  const candidateGroups: CandidateGroup[] = [];
+
+  const candidateContainers = document.querySelectorAll(
+    'div, ul, ol, section, main, article, tbody'
+  );
+
+  let groupCounter = 0;
+
+  candidateContainers.forEach((container) => {
+    if (isExcluded(container)) return;
+
+    const children = Array.from(container.children).filter((child) => {
+      if (isExcluded(child)) return false;
+      const style = window.getComputedStyle ? window.getComputedStyle(child) : null;
+      if (style && (style.display === 'none' || style.visibility === 'hidden')) return false;
+      return true;
+    });
+
+    if (children.length < 3) return;
+
+    const tagBuckets: Record<string, Element[]> = {};
+    children.forEach((child) => {
+      const tag = child.tagName.toLowerCase();
+      if (!tagBuckets[tag]) {
+        tagBuckets[tag] = [];
+      }
+      tagBuckets[tag].push(child);
+    });
+
+    Object.entries(tagBuckets).forEach(([tag, elements]) => {
+      if (elements.length < 3) return;
+
+      const firstEl = elements[0];
+      const depth = getElementDepth(firstEl);
+      if (depth < 2) return;
+
+      const hasLinks = elements.some((el) => Boolean(el.querySelector('a[href]')));
+      const hasImages = elements.some((el) => Boolean(el.querySelector('img, picture, [style*="background-image"]')));
+      const avgTextDensity =
+        elements.reduce((acc, el) => acc + computeTextDensity(el), 0) / elements.length;
+
+      let confidence = 0.4;
+      if (hasLinks) confidence += 0.25;
+      if (hasImages) confidence += 0.15;
+      if (elements.length >= 5 && elements.length <= 100) confidence += 0.1;
+      if (avgTextDensity > 0.05 && avgTextDensity < 0.8) confidence += 0.1;
+      confidence = Math.min(0.99, Math.round(confidence * 100) / 100);
+
+      const cardSelector = buildUniqueCardSelector(container, firstEl);
+      const containerSelector = buildElementSelector(container);
+
+      const sampleSnippets = elements.slice(0, 2).map((el) => sanitizeSampleSnippet(el));
+
+      candidateGroups.push({
+        groupId: `group_${++groupCounter}_${tag}`,
+        tag,
+        containerSelector,
+        cardSelector,
+        count: elements.length,
+        depth,
+        textDensity: Math.round(avgTextDensity * 100) / 100,
+        hasLinks,
+        hasImages,
+        confidence,
+        sampleSnippets
+      });
+    });
+  });
+
+  candidateGroups.sort((a, b) => b.confidence * b.count - a.confidence * a.count);
+
+  const topCandidateGroups = candidateGroups.slice(0, 8);
+
+  return {
+    url,
+    hostname,
+    title,
+    timestamp,
+    totalElements: allElements.length,
+    candidateGroups: topCandidateGroups,
+    hasRestrictedAccess: false
+  };
+}
+
+const HIGHLIGHT_STYLE_ID = 'pirates-v2-highlight-style';
+const HIGHLIGHT_CLASS = 'pirates-v2-candidate-highlight';
+
+function ensureHighlightStyles(): void {
+  if (document.getElementById(HIGHLIGHT_STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = HIGHLIGHT_STYLE_ID;
+  style.textContent = `
+    .${HIGHLIGHT_CLASS} {
+      outline: 2px dashed #00e5ff !important;
+      outline-offset: 2px !important;
+      box-shadow: 0 0 10px rgba(0, 229, 255, 0.3) !important;
+      transition: outline 0.2s ease-in-out !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+export function highlightCandidateElements(selector: string): number {
+  ensureHighlightStyles();
+  clearCandidateHighlights();
+
+  try {
+    const matched = document.querySelectorAll(selector);
+    matched.forEach((el) => {
+      el.classList.add(HIGHLIGHT_CLASS);
+    });
+    if (matched.length > 0 && typeof (matched[0] as HTMLElement).scrollIntoView === 'function') {
+      matched[0].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    return matched.length;
+  } catch {
+    return 0;
+  }
+}
+
+export function clearCandidateHighlights(): void {
+  const highlighted = document.querySelectorAll(`.${HIGHLIGHT_CLASS}`);
+  highlighted.forEach((el) => el.classList.remove(HIGHLIGHT_CLASS));
+}
+
+
+
+================================================
+FILE: src/content/index.ts
+================================================
+import {
+  collectPageDiagnostics,
+  highlightCandidateElements,
+  clearCandidateHighlights
+} from './domCollector';
+import { ExtensionMessage } from '../modules/types/messaging';
+
+function handleMessage(
+  message: ExtensionMessage,
+  _sender: chrome.runtime.MessageSender,
+  sendResponse: (response?: unknown) => void
+): boolean {
+  if (message.type === 'PING') {
+    sendResponse({ type: 'PONG', version: '2.0.0' });
+    return false;
+  }
+
+  if (message.type === 'GET_PAGE_DIAGNOSTICS') {
+    try {
+      const diagnostics = collectPageDiagnostics();
+      sendResponse({ type: 'PAGE_DIAGNOSTICS_RESPONSE', payload: diagnostics });
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      sendResponse({ type: 'ERROR', error: errorMsg });
+    }
+    return false;
+  }
+
+  if (message.type === 'HIGHLIGHT_CANDIDATE_GROUP') {
+    const count = highlightCandidateElements(message.cardSelector);
+    sendResponse({ success: true, count });
+    return false;
+  }
+
+  if (message.type === 'CLEAR_HIGHLIGHTS') {
+    clearCandidateHighlights();
+    sendResponse({ success: true });
+    return false;
+  }
+
+  return false;
+}
+
+if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+  chrome.runtime.onMessage.addListener(handleMessage);
+}
+
+
+
+================================================
+FILE: src/modules/types/diagnostics.ts
+================================================
+export interface CandidateGroup {
+  groupId: string;
+  tag: string;
+  containerSelector: string;
+  cardSelector: string;
+  count: number;
+  depth: number;
+  textDensity: number;
+  hasLinks: boolean;
+  hasImages: boolean;
+  confidence: number;
+  sampleSnippets: string[];
+}
+
+export interface PageDiagnostics {
+  url: string;
+  hostname: string;
+  title: string;
+  timestamp: string;
+  totalElements: number;
+  candidateGroups: CandidateGroup[];
+  hasRestrictedAccess: boolean;
+  restrictionReason?: string;
+}
+
+
+
+================================================
+FILE: src/modules/types/messaging.ts
+================================================
+import { PageDiagnostics } from './diagnostics';
+
+export type MessageType =
+  | 'PING'
+  | 'PONG'
+  | 'GET_PAGE_DIAGNOSTICS'
+  | 'PAGE_DIAGNOSTICS_RESPONSE'
+  | 'HIGHLIGHT_CANDIDATE_GROUP'
+  | 'CLEAR_HIGHLIGHTS'
+  | 'ERROR';
+
+export interface PingMessage {
+  type: 'PING';
+}
+
+export interface PongMessage {
+  type: 'PONG';
+  version: string;
+}
+
+export interface GetPageDiagnosticsMessage {
+  type: 'GET_PAGE_DIAGNOSTICS';
+}
+
+export interface PageDiagnosticsResponseMessage {
+  type: 'PAGE_DIAGNOSTICS_RESPONSE';
+  payload: PageDiagnostics;
+}
+
+export interface HighlightCandidateGroupMessage {
+  type: 'HIGHLIGHT_CANDIDATE_GROUP';
+  cardSelector: string;
+}
+
+export interface ClearHighlightsMessage {
+  type: 'CLEAR_HIGHLIGHTS';
+}
+
+export interface ErrorMessage {
+  type: 'ERROR';
+  error: string;
+}
+
+export type ExtensionMessage =
+  | PingMessage
+  | PongMessage
+  | GetPageDiagnosticsMessage
+  | PageDiagnosticsResponseMessage
+  | HighlightCandidateGroupMessage
+  | ClearHighlightsMessage
+  | ErrorMessage;
+
+
+
+================================================
+FILE: src/modules/types/schema.ts
+================================================
+export type FieldSemanticType =
+  | 'text'
+  | 'price'
+  | 'mrp'
+  | 'currency'
+  | 'url'
+  | 'image'
+  | 'rating'
+  | 'rating_count'
+  | 'review_count'
+  | 'date'
+  | 'custom';
+
+export interface FieldDefinition {
+  name: string;
+  type: FieldSemanticType;
+  required: boolean;
+  description?: string;
+  customRegex?: string;
+}
+
+export type RecordPresetType =
+  | 'ecommerce'
+  | 'b2b_listing'
+  | 'social_post'
+  | 'social_profile'
+  | 'custom';
+
+export interface RecordPresetConfig {
+  id: RecordPresetType;
+  label: string;
+  description: string;
+  fields: FieldDefinition[];
+}
+
+export const PRESET_SCHEMAS: Record<RecordPresetType, RecordPresetConfig> = {
+  ecommerce: {
+    id: 'ecommerce',
+    label: 'E-Commerce Product',
+    description: 'Product listings with selling price, list MRP, rating, and media',
+    fields: [
+      { name: 'title', type: 'text', required: true, description: 'Product title or headline' },
+      { name: 'selling_price', type: 'price', required: true, description: 'Current active purchase price' },
+      { name: 'mrp', type: 'mrp', required: false, description: 'Original or strikethrough list price' },
+      { name: 'currency', type: 'currency', required: false, description: 'Currency symbol or ISO code' },
+      { name: 'rating', type: 'rating', required: false, description: 'Product star rating (0-5 or 0-10)' },
+      { name: 'image_url', type: 'image', required: false, description: 'Product primary thumbnail image' },
+      { name: 'product_url', type: 'url', required: false, description: 'Link to full product details' }
+    ]
+  },
+  b2b_listing: {
+    id: 'b2b_listing',
+    label: 'B2B Marketplace Listing',
+    description: 'B2B products/services, supplier company, location, and quotation',
+    fields: [
+      { name: 'product_or_service', type: 'text', required: true, description: 'Service or product name' },
+      { name: 'company_name', type: 'text', required: true, description: 'Supplier or company name' },
+      { name: 'price_or_status', type: 'price', required: false, description: 'Unit price or quotation status' },
+      { name: 'location', type: 'text', required: false, description: 'Supplier city, state, or country' },
+      { name: 'contact_url', type: 'url', required: false, description: 'Contact or inquiry link' },
+      { name: 'image_url', type: 'image', required: false, description: 'Listing photo or catalogue image' }
+    ]
+  },
+  social_post: {
+    id: 'social_post',
+    label: 'Social Media Post',
+    description: 'Feed posts with author, text content, timestamp, and post link',
+    fields: [
+      { name: 'author_name', type: 'text', required: true, description: 'Author or account display name' },
+      { name: 'author_handle', type: 'text', required: false, description: 'Handle or username (@user)' },
+      { name: 'content_text', type: 'text', required: true, description: 'Main text body of the post' },
+      { name: 'timestamp', type: 'date', required: false, description: 'Posted date or relative time' },
+      { name: 'post_url', type: 'url', required: false, description: 'Direct link to post' },
+      { name: 'media_url', type: 'image', required: false, description: 'Attached media or preview image' }
+    ]
+  },
+  social_profile: {
+    id: 'social_profile',
+    label: 'Social Profile / Directory',
+    description: 'User or member directory profiles with headline and link',
+    fields: [
+      { name: 'display_name', type: 'text', required: true, description: 'Full name or organization' },
+      { name: 'handle', type: 'text', required: true, description: 'Username, handle or profile id' },
+      { name: 'bio', type: 'text', required: false, description: 'Headline, role, or biography text' },
+      { name: 'avatar_url', type: 'image', required: false, description: 'Profile picture avatar' },
+      { name: 'profile_url', type: 'url', required: false, description: 'Link to user profile' }
+    ]
+  },
+  custom: {
+    id: 'custom',
+    label: 'Custom Schema',
+    description: 'User-specified target fields and data types',
+    fields: [
+      { name: 'title', type: 'text', required: true, description: 'Item title or identifier' }
+    ]
+  }
+};
+
+
+
+================================================
+FILE: src/popup/App.tsx
+================================================
+import React, { useState, useEffect } from 'react';
+import { PRESET_SCHEMAS, RecordPresetType } from '../modules/types/schema';
+import { PageDiagnostics, CandidateGroup } from '../modules/types/diagnostics';
+import { ExtensionMessage } from '../modules/types/messaging';
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState<'diagnostics' | 'rules' | 'settings'>('diagnostics');
+  const [selectedPreset, setSelectedPreset] = useState<RecordPresetType>('ecommerce');
+  const [diagnostics, setDiagnostics] = useState<PageDiagnostics | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [connected, setConnected] = useState<boolean>(false);
+  const [expandedSnippetId, setExpandedSnippetId] = useState<string | null>(null);
+  const [highlightedSelector, setHighlightedSelector] = useState<string | null>(null);
+
+  const activePresetConfig = PRESET_SCHEMAS[selectedPreset];
+
+  useEffect(() => {
+    checkConnection();
+  }, []);
+
+  async function getActiveTabId(): Promise<number | null> {
+    if (typeof chrome === 'undefined' || !chrome.tabs || !chrome.tabs.query) {
+      return null;
+    }
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    return tab?.id ?? null;
+  }
+
+  async function checkConnection(): Promise<boolean> {
+    const tabId = await getActiveTabId();
+    if (!tabId) {
+      setConnected(false);
+      return false;
+    }
+
+    try {
+      const response = await chrome.tabs.sendMessage(tabId, { type: 'PING' } as ExtensionMessage);
+      const isOk = response?.type === 'PONG';
+      setConnected(isOk);
+      return isOk;
+    } catch {
+      setConnected(false);
+      return false;
+    }
+  }
+
+  async function handleInspectPage(): Promise<void> {
+    setLoading(true);
+    setError(null);
+
+    const tabId = await getActiveTabId();
+    if (!tabId) {
+      setLoading(false);
+      setError('No active browser tab found. Open a webpage and try again.');
+      return;
+    }
+
+    try {
+      let isAlive = await checkConnection();
+      if (!isAlive && chrome.scripting && chrome.scripting.executeScript) {
+        await chrome.scripting.executeScript({
+          target: { tabId },
+          files: ['content.js']
+        });
+        isAlive = await checkConnection();
+      }
+
+      const response = await chrome.tabs.sendMessage(tabId, {
+        type: 'GET_PAGE_DIAGNOSTICS'
+      } as ExtensionMessage);
+
+      if (response?.type === 'PAGE_DIAGNOSTICS_RESPONSE') {
+        setDiagnostics(response.payload);
+        setConnected(true);
+      } else if (response?.type === 'ERROR') {
+        setError(response.error);
+      } else {
+        setError('Unexpected diagnostics response from page content script.');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(`Cannot communicate with page: ${msg}. Refresh the page or ensure permissions are granted.`);
+      setConnected(false);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleHighlight(group: CandidateGroup): Promise<void> {
+    const tabId = await getActiveTabId();
+    if (!tabId) return;
+
+    try {
+      await chrome.tabs.sendMessage(tabId, {
+        type: 'HIGHLIGHT_CANDIDATE_GROUP',
+        cardSelector: group.cardSelector
+      } as ExtensionMessage);
+      setHighlightedSelector(group.cardSelector);
+    } catch {
+      setError('Failed to apply element highlight on page.');
+    }
+  }
+
+  async function handleClearHighlight(): Promise<void> {
+    const tabId = await getActiveTabId();
+    if (!tabId) return;
+
+    try {
+      await chrome.tabs.sendMessage(tabId, {
+        type: 'CLEAR_HIGHLIGHTS'
+      } as ExtensionMessage);
+      setHighlightedSelector(null);
+    } catch {
+      setError('Failed to clear highlights.');
+    }
+  }
+
+  return (
+    <div className="popup-container">
+      <header className="header">
+        <div className="brand">
+          <div className="brand-icon">PA</div>
+          <span className="brand-title">PIRATES ALERT</span>
+          <span className="brand-version">v2.0</span>
+        </div>
+        <div className="status-badge">
+          {connected ? (
+            <span className="badge badge-success">Live Page Active</span>
+          ) : (
+            <span className="badge badge-warning">Page Inactive</span>
+          )}
+        </div>
+      </header>
+
+      <section className="preset-card">
+        <div className="preset-row">
+          <span className="label-title">Extraction Target</span>
+          <select
+            className="preset-select"
+            value={selectedPreset}
+            onChange={(e) => setSelectedPreset(e.target.value as RecordPresetType)}
+          >
+            {Object.values(PRESET_SCHEMAS).map((preset) => (
+              <option key={preset.id} value={preset.id}>
+                {preset.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="fields-tags">
+          {activePresetConfig.fields.map((f) => (
+            <span
+              key={f.name}
+              className={`field-tag ${f.required ? 'required' : ''}`}
+              title={f.description}
+            >
+              <span>{f.name}</span>
+              <span className="field-type">{f.type}</span>
+            </span>
+          ))}
+        </div>
+      </section>
+
+      <nav className="tabs-nav">
+        <button
+          className={`tab-btn ${activeTab === 'diagnostics' ? 'active' : ''}`}
+          onClick={() => setActiveTab('diagnostics')}
+        >
+          DOM Diagnostics
+        </button>
+        <button
+          className={`tab-btn ${activeTab === 'rules' ? 'active' : ''}`}
+          onClick={() => setActiveTab('rules')}
+        >
+          Saved Rules
+        </button>
+        <button
+          className={`tab-btn ${activeTab === 'settings' ? 'active' : ''}`}
+          onClick={() => setActiveTab('settings')}
+        >
+          AI & Proxy
+        </button>
+      </nav>
+
+      {error && (
+        <div className="notice-banner notice-warning">
+          <strong>Notice</strong>
+          <span>{error}</span>
+        </div>
+      )}
+
+      {activeTab === 'diagnostics' && (
+        <main className="diagnostics-panel">
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              className="btn-primary"
+              style={{ flex: 1 }}
+              onClick={handleInspectPage}
+              disabled={loading}
+            >
+              {loading ? 'Inspecting Live DOM...' : 'Inspect Page DOM Candidates'}
+            </button>
+            {highlightedSelector && (
+              <button className="btn-secondary" onClick={handleClearHighlight}>
+                Clear Highlights
+              </button>
+            )}
+          </div>
+
+          {diagnostics && (
+            <>
+              {diagnostics.hasRestrictedAccess ? (
+                <div className="notice-banner notice-warning">
+                  <strong>Restricted Page</strong>
+                  <span>{diagnostics.restrictionReason}</span>
+                </div>
+              ) : (
+                <>
+                  <div className="meta-box">
+                    <div className="meta-item">
+                      <span>Host</span>
+                      <span>{diagnostics.hostname || 'Unknown Host'}</span>
+                    </div>
+                    <div className="meta-item">
+                      <span>Total Elements</span>
+                      <span>{diagnostics.totalElements}</span>
+                    </div>
+                    <div className="meta-item" style={{ gridColumn: 'span 2' }}>
+                      <span>Title</span>
+                      <span>{diagnostics.title || 'Untitled Page'}</span>
+                    </div>
+                  </div>
+
+                  <div className="candidate-list">
+                    <div className="label-title">
+                      Candidate Groups ({diagnostics.candidateGroups.length})
+                    </div>
+
+                    {diagnostics.candidateGroups.length === 0 ? (
+                      <div className="empty-state">
+                        <span>No repeating candidate sections detected on this page.</span>
+                      </div>
+                    ) : (
+                      diagnostics.candidateGroups.map((group) => {
+                        const isExpanded = expandedSnippetId === group.groupId;
+                        const isHighlighted = highlightedSelector === group.cardSelector;
+
+                        return (
+                          <div key={group.groupId} className="candidate-card">
+                            <div className="candidate-header">
+                              <span className="candidate-selector" title={group.cardSelector}>
+                                {group.cardSelector}
+                              </span>
+                              <span
+                                className={`badge ${
+                                  group.confidence >= 0.75
+                                    ? 'badge-success'
+                                    : group.confidence >= 0.5
+                                    ? 'badge-warning'
+                                    : 'badge-info'
+                                }`}
+                              >
+                                {Math.round(group.confidence * 100)}% match
+                              </span>
+                            </div>
+
+                            <div className="candidate-metrics">
+                              <span className="metric-item">
+                                <strong>{group.count}</strong> items
+                              </span>
+                              <span className="metric-item">
+                                Depth: {group.depth}
+                              </span>
+                              <span className="metric-item">
+                                {group.hasLinks && 'Links ? '}
+                                {group.hasImages && 'Images ? '}
+                              </span>
+                            </div>
+
+                            <div className="candidate-actions">
+                              <button
+                                className="btn-secondary"
+                                onClick={() =>
+                                  setExpandedSnippetId(isExpanded ? null : group.groupId)
+                                }
+                              >
+                                {isExpanded ? 'Hide Snippet' : 'Sample Snippet'}
+                              </button>
+                              <button
+                                className="btn-secondary"
+                                onClick={() => handleHighlight(group)}
+                                style={{
+                                  borderColor: isHighlighted ? 'var(--accent-cyan)' : undefined,
+                                  color: isHighlighted ? 'var(--accent-cyan)' : undefined
+                                }}
+                              >
+                                {isHighlighted ? 'Highlighted' : 'Highlight on Page'}
+                              </button>
+                            </div>
+
+                            {isExpanded && group.sampleSnippets.length > 0 && (
+                              <pre className="snippets-box">
+                                {group.sampleSnippets[0]}
+                              </pre>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </>
+              )}
+            </>
+          )}
+
+          {!diagnostics && !loading && (
+            <div className="empty-state">
+              <span>Click "Inspect Page DOM Candidates" to scan the active page for repeating cards, feeds, or listings.</span>
+            </div>
+          )}
+        </main>
+      )}
+
+      {activeTab === 'rules' && (
+        <div className="empty-state">
+          <span>Saved layout rules and version histories will appear here in Phase 5 & 6.</span>
+        </div>
+      )}
+
+      {activeTab === 'settings' && (
+        <div className="empty-state">
+          <span>AI backend proxy configuration and token consumption metrics will appear here in Phase 3 & 6.</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
+================================================
+FILE: src/popup/main.tsx
+================================================
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './styles/theme.css';
+import './styles/popup.css';
+
+const rootEl = document.getElementById('root');
+if (rootEl) {
+  ReactDOM.createRoot(rootEl).render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
+}
+
+
+
+================================================
+FILE: src/popup/styles/popup.css
+================================================
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  width: 500px;
+  min-height: 580px;
+  max-height: 600px;
+  overflow-y: auto;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.popup-container {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  gap: 14px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-icon {
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+  color: #000;
+}
+
+.brand-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--text-primary);
+}
+
+.brand-version {
+  font-size: 10px;
+  color: var(--accent-cyan);
+  background: var(--bg-surface);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.badge-success {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--status-success);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badge-warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--status-warning);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badge-danger {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--status-danger);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.badge-info {
+  background: rgba(0, 229, 255, 0.12);
+  color: var(--accent-cyan);
+  border: 1px solid var(--border-accent);
+}
+
+.preset-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.preset-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.label-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.preset-select {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+}
+
+.preset-select:focus {
+  border-color: var(--accent-cyan);
+}
+
+.fields-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.field-tag {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.field-tag.required {
+  border-color: var(--border-accent);
+  color: var(--text-primary);
+}
+
+.field-type {
+  font-size: 9px;
+  color: var(--accent-cyan);
+  text-transform: uppercase;
+}
+
+.tabs-nav {
+  display: flex;
+  border-bottom: 1px solid var(--border-subtle);
+  gap: 4px;
+}
+
+.tab-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.tab-btn.active {
+  color: var(--accent-cyan);
+  border-bottom-color: var(--accent-cyan);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #00c6ff, #0072ff);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-shadow: 0 2px 8px rgba(0, 198, 255, 0.25);
+  transition: opacity 0.2s;
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.diagnostics-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.meta-box {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.meta-item span:first-child {
+  color: var(--text-muted);
+}
+
+.meta-item span:last-child {
+  color: var(--text-primary);
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.candidate-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.candidate-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.2s ease;
+}
+
+.candidate-card:hover {
+  border-color: var(--border-accent);
+}
+
+.candidate-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.candidate-selector {
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--accent-cyan);
+  background: var(--bg-surface);
+  padding: 3px 6px;
+  border-radius: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 320px;
+}
+
+.candidate-metrics {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.metric-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.candidate-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.snippets-box {
+  background: #050811;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  font-family: monospace;
+  font-size: 10px;
+  color: var(--text-secondary);
+  max-height: 120px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.notice-banner {
+  padding: 12px;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.notice-warning {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fbbf24;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 30px 16px;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+
+
+================================================
+FILE: src/popup/styles/theme.css
+================================================
+:root {
+  --bg-primary: #0a0f1d;
+  --bg-secondary: #111827;
+  --bg-surface: #1e293b;
+  --bg-surface-hover: #283548;
+  --bg-glass: rgba(17, 24, 39, 0.75);
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-accent: rgba(0, 229, 255, 0.25);
+  
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  
+  --accent-cyan: #00e5ff;
+  --accent-cyan-glow: rgba(0, 229, 255, 0.2);
+  --accent-purple: #8b5cf6;
+  --status-success: #10b981;
+  --status-warning: #f59e0b;
+  --status-danger: #ef4444;
+  --status-info: #3b82f6;
+
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 15px var(--accent-cyan-glow);
+}
+
+
+
+================================================
+FILE: tests/unit/domCollector.test.ts
+================================================
+import { describe, it, expect, beforeEach } from 'vitest';
+import {
+  collectPageDiagnostics,
+  highlightCandidateElements,
+  clearCandidateHighlights
+} from '../../src/content/domCollector';
+
+describe('DOM Diagnostics Collector', () => {
+  beforeEach(() => {
+    document.head.innerHTML = '';
+    document.body.innerHTML = '';
+  });
+
+  it('detects repeating candidate listing cards', () => {
+    document.title = 'Test Store';
+    document.body.innerHTML = `
+      <header><nav><a>Home</a><a>Catalog</a></nav></header>
+      <main>
+        <section class="products-grid">
+          <div class="product-card">
+            <a href="/item/1"><h2>Item One</h2></a>
+            <img src="https://example.com/1.jpg" alt="1" />
+            <span class="price">$19.99</span>
+          </div>
+          <div class="product-card">
+            <a href="/item/2"><h2>Item Two</h2></a>
+            <img src="https://example.com/2.jpg" alt="2" />
+            <span class="price">$29.99</span>
+          </div>
+          <div class="product-card">
+            <a href="/item/3"><h2>Item Three</h2></a>
+            <img src="https://example.com/3.jpg" alt="3" />
+            <span class="price">$39.99</span>
+          </div>
+          <div class="product-card">
+            <a href="/item/4"><h2>Item Four</h2></a>
+            <img src="https://example.com/4.jpg" alt="4" />
+            <span class="price">$49.99</span>
+          </div>
+        </section>
+      </main>
+      <footer><span>Copyright 2026</span></footer>
+    `;
+
+    const diagnostics = collectPageDiagnostics();
+
+    expect(diagnostics.title).toBe('Test Store');
+    expect(diagnostics.hasRestrictedAccess).toBe(false);
+    expect(diagnostics.candidateGroups.length).toBeGreaterThan(0);
+
+    const topGroup = diagnostics.candidateGroups[0];
+    expect(topGroup.count).toBe(4);
+    expect(topGroup.hasLinks).toBe(true);
+    expect(topGroup.hasImages).toBe(true);
+    expect(topGroup.confidence).toBeGreaterThan(0.7);
+    expect(topGroup.sampleSnippets.length).toBeGreaterThan(0);
+  });
+
+  it('ignores excluded navigation, header, and footer containers', () => {
+    document.body.innerHTML = `
+      <nav>
+        <ul>
+          <li><a href="/1">Link 1</a></li>
+          <li><a href="/2">Link 2</a></li>
+          <li><a href="/3">Link 3</a></li>
+          <li><a href="/4">Link 4</a></li>
+        </ul>
+      </nav>
+      <section class="posts">
+        <article class="feed-item"><p>Post A</p><a href="/a">Read</a></article>
+        <article class="feed-item"><p>Post B</p><a href="/b">Read</a></article>
+        <article class="feed-item"><p>Post C</p><a href="/c">Read</a></article>
+      </section>
+    `;
+
+    const diagnostics = collectPageDiagnostics();
+    const candidateGroupSelectors = diagnostics.candidateGroups.map((g) => g.cardSelector);
+
+    expect(candidateGroupSelectors.some((sel) => sel.includes('nav'))).toBe(false);
+    expect(candidateGroupSelectors.some((sel) => sel.includes('feed-item') || sel.includes('article'))).toBe(true);
+  });
+
+  it('highlights and clears candidate elements correctly', () => {
+    document.body.innerHTML = `
+      <div class="container">
+        <div class="item">Item 1</div>
+        <div class="item">Item 2</div>
+        <div class="item">Item 3</div>
+      </div>
+    `;
+
+    const highlightedCount = highlightCandidateElements('div.container > div.item');
+    expect(highlightedCount).toBe(3);
+
+    const highlightedEls = document.querySelectorAll('.pirates-v2-candidate-highlight');
+    expect(highlightedEls.length).toBe(3);
+
+    clearCandidateHighlights();
+    const clearedEls = document.querySelectorAll('.pirates-v2-candidate-highlight');
+    expect(clearedEls.length).toBe(0);
+  });
+});
+
+
+
+================================================
+FILE: tests/unit/schema.test.ts
+================================================
+import { describe, it, expect } from 'vitest';
+import { PRESET_SCHEMAS, RecordPresetType } from '../../src/modules/types/schema';
+
+describe('Schema Contracts', () => {
+  it('defines all required preset schemas', () => {
+    const expectedPresets: RecordPresetType[] = [
+      'ecommerce',
+      'b2b_listing',
+      'social_post',
+      'social_profile',
+      'custom'
+    ];
+
+    expectedPresets.forEach((preset) => {
+      expect(PRESET_SCHEMAS[preset]).toBeDefined();
+      expect(PRESET_SCHEMAS[preset].id).toBe(preset);
+      expect(PRESET_SCHEMAS[preset].fields.length).toBeGreaterThan(0);
+    });
+  });
+
+  it('contains valid required fields for ecommerce', () => {
+    const ecommerce = PRESET_SCHEMAS.ecommerce;
+    const titleField = ecommerce.fields.find((f) => f.name === 'title');
+    const priceField = ecommerce.fields.find((f) => f.name === 'selling_price');
+    const mrpField = ecommerce.fields.find((f) => f.name === 'mrp');
+
+    expect(titleField).toBeDefined();
+    expect(titleField?.required).toBe(true);
+    expect(titleField?.type).toBe('text');
+
+    expect(priceField).toBeDefined();
+    expect(priceField?.required).toBe(true);
+    expect(priceField?.type).toBe('price');
+
+    expect(mrpField).toBeDefined();
+    expect(mrpField?.required).toBe(false);
+    expect(mrpField?.type).toBe('mrp');
+  });
+
+  it('contains valid required fields for b2b listing', () => {
+    const b2b = PRESET_SCHEMAS.b2b_listing;
+    const productField = b2b.fields.find((f) => f.name === 'product_or_service');
+    const companyField = b2b.fields.find((f) => f.name === 'company_name');
+
+    expect(productField?.required).toBe(true);
+    expect(companyField?.required).toBe(true);
+  });
+
+  it('contains valid required fields for social post', () => {
+    const post = PRESET_SCHEMAS.social_post;
+    const authorField = post.fields.find((f) => f.name === 'author_name');
+    const contentField = post.fields.find((f) => f.name === 'content_text');
+
+    expect(authorField?.required).toBe(true);
+    expect(contentField?.required).toBe(true);
+  });
+});
+
+

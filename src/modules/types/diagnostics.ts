@@ -1,14 +1,20 @@
+import { CandidateGroupEvidence } from './evidence';
+
 export interface CandidateGroup {
   groupId: string;
   tag: string;
   containerSelector: string;
   cardSelector: string;
   count: number;
+  liveMatchCount: number;
+  isAmbiguous: boolean;
   depth: number;
   textDensity: number;
   hasLinks: boolean;
   hasImages: boolean;
-  confidence: number;
+  heuristicScore: number;
+  structuralSignature: string;
+  evidence: CandidateGroupEvidence;
   sampleSnippets: string[];
 }
 

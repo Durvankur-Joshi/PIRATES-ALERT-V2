@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head><title>Hidden Elements Fixture</title></head>
+<body>
+  <div class="results-list">
+    <div class="item-card">
+      <a href="/prod/1"><h4>Visible Item 1</h4></a>
+      <span class="price">$10</span>
+    </div>
+    <div class="item-card" style="display: none;">
+      <a href="/prod/2"><h4>Hidden Item 2 (Do Not Count)</h4></a>
+      <span class="price">$20</span>
+    </div>
+    <div class="item-card" aria-hidden="true">
+      <a href="/prod/3"><h4>Aria Hidden Item 3 (Do Not Count)</h4></a>
+      <span class="price">$30</span>
+    </div>
+    <div class="item-card">
+      <a href="/prod/4"><h4>Visible Item 4</h4></a>
+      <span class="price">$40</span>
+    </div>
+    <div class="item-card">
+      <a href="/prod/5"><h4>Visible Item 5</h4></a>
+      <span class="price">$50</span>
+    </div>
+    <script>const track = "irrelevant";</script>
+    <style>.banner { color: red; }</style>
+  </div>
+</body>
+</html>

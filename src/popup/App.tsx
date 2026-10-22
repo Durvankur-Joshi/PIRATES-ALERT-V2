@@ -10,7 +10,7 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [connected, setConnected] = useState<boolean>(false);
-  const [expandedSnippetId, setExpandedSnippetId] = useState<string | null>(null);
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
   const [highlightedSelector, setHighlightedSelector] = useState<string | null>(null);
 
   const activePresetConfig = PRESET_SCHEMAS[selectedPreset];
@@ -19,23 +19,23 @@ export default function App() {
     checkConnection();
   }, []);
 
-  async function getActiveTabId(): Promise<number | null> {
+  async function getActiveTab(): Promise<chrome.tabs.Tab | null> {
     if (typeof chrome === 'undefined' || !chrome.tabs || !chrome.tabs.query) {
       return null;
     }
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    return tab?.id ?? null;
+    return tab ?? null;
   }
 
   async function checkConnection(): Promise<boolean> {
-    const tabId = await getActiveTabId();
-    if (!tabId) {
+    const tab = await getActiveTab();
+    if (!tab?.id) {
       setConnected(false);
       return false;
     }
 
     try {
-      const response = await chrome.tabs.sendMessage(tabId, { type: 'PING' } as ExtensionMessage);
+      const response = await chrome.tabs.sendMessage(tab.id, { type: 'PING' } as ExtensionMessage);
       const isOk = response?.type === 'PONG';
       setConnected(isOk);
       return isOk;
@@ -49,24 +49,50 @@ export default function App() {
     setLoading(true);
     setError(null);
 
-    const tabId = await getActiveTabId();
-    if (!tabId) {
+    const tab = await getActiveTab();
+    if (!tab?.id) {
       setLoading(false);
       setError('No active browser tab found. Open a webpage and try again.');
+      return;
+    }
+
+    const tabUrl = tab.url || '';
+    if (
+      tabUrl.startsWith('chrome://') ||
+      tabUrl.startsWith('chrome-extension://') ||
+      tabUrl.startsWith('edge://') ||
+      tabUrl.startsWith('about:') ||
+      tabUrl.startsWith('view-source:')
+    ) {
+      setLoading(false);
+      setDiagnostics({
+        url: tabUrl,
+        hostname: 'system',
+        title: tab.title || 'System Page',
+        timestamp: new Date().toISOString(),
+        totalElements: 0,
+        candidateGroups: [],
+        hasRestrictedAccess: true,
+        restrictionReason: 'Browser-internal system pages (chrome://, edge://, about:) cannot be inspected or extracted.'
+      });
       return;
     }
 
     try {
       let isAlive = await checkConnection();
       if (!isAlive && chrome.scripting && chrome.scripting.executeScript) {
-        await chrome.scripting.executeScript({
-          target: { tabId },
-          files: ['content.js']
-        });
-        isAlive = await checkConnection();
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ['content.js']
+          });
+          isAlive = await checkConnection();
+        } catch {
+          isAlive = false;
+        }
       }
 
-      const response = await chrome.tabs.sendMessage(tabId, {
+      const response = await chrome.tabs.sendMessage(tab.id, {
         type: 'GET_PAGE_DIAGNOSTICS'
       } as ExtensionMessage);
 
@@ -80,7 +106,7 @@ export default function App() {
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      setError(`Cannot communicate with page: ${msg}. Refresh the page or ensure permissions are granted.`);
+      setError(`Cannot communicate with page: ${msg}. Refresh the page and try again.`);
       setConnected(false);
     } finally {
       setLoading(false);
@@ -88,11 +114,11 @@ export default function App() {
   }
 
   async function handleHighlight(group: CandidateGroup): Promise<void> {
-    const tabId = await getActiveTabId();
-    if (!tabId) return;
+    const tab = await getActiveTab();
+    if (!tab?.id) return;
 
     try {
-      await chrome.tabs.sendMessage(tabId, {
+      await chrome.tabs.sendMessage(tab.id, {
         type: 'HIGHLIGHT_CANDIDATE_GROUP',
         cardSelector: group.cardSelector
       } as ExtensionMessage);
@@ -103,11 +129,11 @@ export default function App() {
   }
 
   async function handleClearHighlight(): Promise<void> {
-    const tabId = await getActiveTabId();
-    if (!tabId) return;
+    const tab = await getActiveTab();
+    if (!tab?.id) return;
 
     try {
-      await chrome.tabs.sendMessage(tabId, {
+      await chrome.tabs.sendMessage(tab.id, {
         type: 'CLEAR_HIGHLIGHTS'
       } as ExtensionMessage);
       setHighlightedSelector(null);
@@ -126,16 +152,16 @@ export default function App() {
         </div>
         <div className="status-badge">
           {connected ? (
-            <span className="badge badge-success">Live Page Active</span>
+            <span className="badge badge-success">Tab Connected</span>
           ) : (
-            <span className="badge badge-warning">Page Inactive</span>
+            <span className="badge badge-warning">Tab Idle</span>
           )}
         </div>
       </header>
 
       <section className="preset-card">
         <div className="preset-row">
-          <span className="label-title">Extraction Target</span>
+          <span className="label-title">Target Schema Preset</span>
           <select
             className="preset-select"
             value={selectedPreset}
@@ -161,6 +187,10 @@ export default function App() {
           ))}
         </div>
       </section>
+
+      <div className="disclaimer-box">
+        Heuristic discovery identifies candidate clusters from DOM repetition patterns. Selecting a schema configures targets; extraction will run in Phase 4.
+      </div>
 
       <nav className="tabs-nav">
         <button
@@ -199,7 +229,7 @@ export default function App() {
               onClick={handleInspectPage}
               disabled={loading}
             >
-              {loading ? 'Inspecting Live DOM...' : 'Inspect Page DOM Candidates'}
+              {loading ? 'Inspecting DOM...' : 'Inspect Page DOM Candidates'}
             </button>
             {highlightedSelector && (
               <button className="btn-secondary" onClick={handleClearHighlight}>
@@ -243,7 +273,7 @@ export default function App() {
                       </div>
                     ) : (
                       diagnostics.candidateGroups.map((group) => {
-                        const isExpanded = expandedSnippetId === group.groupId;
+                        const isExpanded = expandedGroupId === group.groupId;
                         const isHighlighted = highlightedSelector === group.cardSelector;
 
                         return (
@@ -253,28 +283,40 @@ export default function App() {
                                 {group.cardSelector}
                               </span>
                               <span
-                                className={`badge ${
-                                  group.confidence >= 0.75
-                                    ? 'badge-success'
-                                    : group.confidence >= 0.5
-                                    ? 'badge-warning'
-                                    : 'badge-info'
+                                className={`score-badge ${
+                                  group.heuristicScore >= 75
+                                    ? 'score-high'
+                                    : group.heuristicScore >= 50
+                                    ? 'score-med'
+                                    : 'score-low'
                                 }`}
                               >
-                                {Math.round(group.confidence * 100)}% match
+                                Heuristic Score: {group.heuristicScore}/100
                               </span>
+                            </div>
+
+                            <div className="structural-chip" title={group.structuralSignature}>
+                              Sig: {group.structuralSignature}
                             </div>
 
                             <div className="candidate-metrics">
                               <span className="metric-item">
-                                <strong>{group.count}</strong> items
+                                <strong>{group.count}</strong> items in container
                               </span>
+                              <span className="metric-item">
+                                <strong>{group.liveMatchCount}</strong> live matches
+                              </span>
+                              {group.isAmbiguous && (
+                                <span className="badge badge-warning">
+                                  Selector Ambiguous
+                                </span>
+                              )}
                               <span className="metric-item">
                                 Depth: {group.depth}
                               </span>
                               <span className="metric-item">
-                                {group.hasLinks && 'Links ? '}
-                                {group.hasImages && 'Images ? '}
+                                {group.hasLinks && 'Links ✓ '}
+                                {group.hasImages && 'Images ✓ '}
                               </span>
                             </div>
 
@@ -282,10 +324,10 @@ export default function App() {
                               <button
                                 className="btn-secondary"
                                 onClick={() =>
-                                  setExpandedSnippetId(isExpanded ? null : group.groupId)
+                                  setExpandedGroupId(isExpanded ? null : group.groupId)
                                 }
                               >
-                                {isExpanded ? 'Hide Snippet' : 'Sample Snippet'}
+                                {isExpanded ? 'Hide Evidence' : 'Structured Evidence'}
                               </button>
                               <button
                                 className="btn-secondary"
@@ -299,10 +341,62 @@ export default function App() {
                               </button>
                             </div>
 
-                            {isExpanded && group.sampleSnippets.length > 0 && (
-                              <pre className="snippets-box">
-                                {group.sampleSnippets[0]}
-                              </pre>
+                            {isExpanded && group.evidence && group.evidence.samples.length > 0 && (
+                              <div className="preview-structured">
+                                <span className="preview-section-title">
+                                  Sample Evidence (Total Size: {group.evidence.totalEvidenceBytes} bytes)
+                                </span>
+
+                                {group.evidence.samples.slice(0, 2).map((s, idx) => (
+                                  <div key={idx} className="preview-item-row">
+                                    <strong>Item #{idx + 1}</strong>
+
+                                    {s.conciseSummary.headings.length > 0 && (
+                                      <div>
+                                        <span className="label-title">Headings:</span>
+                                        <div className="preview-tag-list">
+                                          {s.conciseSummary.headings.map((h, i) => (
+                                            <span key={i} className="preview-tag">{h}</span>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {s.conciseSummary.badgesOrPrices.length > 0 && (
+                                      <div>
+                                        <span className="label-title">Badges/Prices:</span>
+                                        <div className="preview-tag-list">
+                                          {s.conciseSummary.badgesOrPrices.map((b, i) => (
+                                            <span key={i} className="preview-tag" style={{ color: 'var(--accent-cyan)' }}>{b}</span>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {s.conciseSummary.links.length > 0 && (
+                                      <div>
+                                        <span className="label-title">Links:</span>
+                                        {s.conciseSummary.links.map((link, i) => (
+                                          <div key={i} className="preview-link">
+                                            {link.text ? `[${link.text}] ` : ''}{link.href}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {s.conciseSummary.images.length > 0 && (
+                                      <div>
+                                        <span className="label-title">Images:</span>
+                                        {s.conciseSummary.images.map((img, i) => (
+                                          <div key={i} className="preview-link">
+                                            {img.src} {img.alt ? `(alt: ${img.alt})` : ''}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
                             )}
                           </div>
                         );
